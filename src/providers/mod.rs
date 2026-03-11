@@ -1,3 +1,4 @@
+use crate::config::SecretFilter;
 use crate::error::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -11,6 +12,7 @@ pub mod azure_kms;
 pub mod azure_sm;
 pub mod bitwarden;
 pub mod bitwarden_sm;
+pub mod enpass;
 pub mod fido2;
 pub mod gcp_kms;
 pub mod gcp_sm;
@@ -136,8 +138,8 @@ mod generated {
     pub(super) mod providers_instantiate {
         // Need to import provider modules for instantiation
         use super::super::{
-            age, aws_kms, aws_ps, aws_sm, azure_kms, azure_sm, bitwarden, bitwarden_sm, fido2,
-            gcp_kms, gcp_sm, infisical, keepass, keychain, onepassword, password_store,
+            age, aws_kms, aws_ps, aws_sm, azure_kms, azure_sm, bitwarden, bitwarden_sm, enpass,
+            fido2, gcp_kms, gcp_sm, infisical, keepass, keychain, onepassword, password_store,
             passwordstate, plain, proton_pass, vault, yubikey,
         };
         include!(concat!(
@@ -162,6 +164,18 @@ pub use generated::providers_wizard::ALL_WIZARD_INFO;
 pub trait Provider: Send + Sync {
     /// Get a secret value from the provider (decrypt if needed)
     async fn get_secret(&self, value: &str) -> Result<String>;
+
+    /// Get a secret value with an optional provider-specific filter for disambiguation.
+    ///
+    /// Providers that support filtering (e.g., Enpass) should override this method.
+    /// The default implementation ignores the filter and delegates to `get_secret`.
+    async fn get_secret_filtered(
+        &self,
+        value: &str,
+        _filter: Option<&SecretFilter>,
+    ) -> Result<String> {
+        self.get_secret(value).await
+    }
 
     /// Get multiple secrets in a batch (more efficient for some providers)
     ///

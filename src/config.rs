@@ -159,6 +159,39 @@ pub struct SyncConfig {
     pub value: String,
 }
 
+/// A filter value that can be a single string or a list of strings.
+///
+/// In TOML:
+/// - Single: `filter = { tag = "DEV" }`
+/// - Multiple: `filter = { tag = ["DEV", "PROD"] }`
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum FilterValue {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl FilterValue {
+    /// Returns all values as a slice-like iterator
+    pub fn values(&self) -> Vec<&str> {
+        match self {
+            FilterValue::Single(s) => vec![s.as_str()],
+            FilterValue::Multiple(v) => v.iter().map(|s| s.as_str()).collect(),
+        }
+    }
+}
+
+/// Provider-specific filter for disambiguating secrets with the same name.
+///
+/// Keys and semantics are provider-specific. For Enpass:
+/// - `tag`: match against folder/tag names (AND for multiple values)
+/// - `category`: match against item category (e.g., "login")
+/// - `favorite`: match favorite flag ("true"/"false")
+/// - `archived`: match archived flag ("true"/"false")
+///
+/// Multiple keys are combined with AND (all must match).
+pub type SecretFilter = HashMap<String, FilterValue>;
+
 /// Configuration for a single secret
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -199,6 +232,11 @@ pub struct SecretConfig {
     /// Cached sync data (provider + encrypted value from `fnox sync`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sync: Option<SyncConfig>,
+
+    /// Provider-specific filter for disambiguating secrets with the same name.
+    /// Keys and semantics depend on the provider (e.g., Enpass supports `tag`, `category`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<SecretFilter>,
 
     /// Path to the config file where this secret was defined (not serialized)
     #[serde(skip)]
@@ -1403,6 +1441,7 @@ impl SecretConfig {
             as_file: false,
             json_path: None,
             sync: None,
+            filter: None,
             source_path: None,
         }
     }

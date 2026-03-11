@@ -120,6 +120,7 @@ export default defineConfig({
             items: [
               { text: "1Password", link: "/providers/1password" },
               { text: "Bitwarden", link: "/providers/bitwarden" },
+              { text: "Enpass", link: "/providers/enpass" },
               { text: "Infisical", link: "/providers/infisical" },
             ],
           },

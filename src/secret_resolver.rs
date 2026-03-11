@@ -1,5 +1,5 @@
 use crate::auth_prompt::prompt_and_run_auth;
-use crate::config::{Config, IfMissing, SecretConfig};
+use crate::config::{Config, IfMissing, SecretConfig, SecretFilter};
 use crate::env;
 use crate::error::{FnoxError, Result};
 use crate::providers::{ProviderConfig, get_provider_resolved};
@@ -273,6 +273,7 @@ async fn try_resolve_from_provider(
         &provider_name,
         provider_config,
         &provider_value,
+        secret_config.filter.as_ref(),
     )
     .await
 }
@@ -286,6 +287,7 @@ async fn try_resolve_with_auth_retry(
     provider_name: &str,
     provider_config: &ProviderConfig,
     provider_value: &str,
+    filter: Option<&SecretFilter>,
 ) -> Result<Option<String>> {
     // Initial secret retrieval attempt before any authentication retry logic
     match try_get_secret(
@@ -294,6 +296,7 @@ async fn try_resolve_with_auth_retry(
         provider_name,
         provider_config,
         provider_value,
+        filter,
     )
     .await
     {
@@ -308,6 +311,7 @@ async fn try_resolve_with_auth_retry(
                     provider_name,
                     provider_config,
                     provider_value,
+                    filter,
                 )
                 .await
                 .map(Some)
@@ -320,13 +324,14 @@ async fn try_resolve_with_auth_retry(
 }
 
 /// Helper to get a single secret from a provider without auth retry logic.
-/// Creates the provider instance and calls `get_secret`.
+/// Creates the provider instance and calls `get_secret_filtered`.
 async fn try_get_secret(
     config: &Config,
     profile: &str,
     provider_name: &str,
     provider_config: &ProviderConfig,
     provider_value: &str,
+    filter: Option<&SecretFilter>,
 ) -> Result<String> {
     if crate::env::is_non_interactive() && provider_config.requires_interactive_auth() {
         return Err(FnoxError::Provider(format!(
@@ -336,7 +341,7 @@ async fn try_get_secret(
     }
 
     let provider = get_provider_resolved(config, profile, provider_name, provider_config).await?;
-    provider.get_secret(provider_value).await
+    provider.get_secret_filtered(provider_value, filter).await
 }
 
 fn handle_missing_secret(
@@ -567,10 +572,16 @@ async fn resolve_level(
 
     for key in ready {
         if let Some((provider_name, provider_value)) = secret_provider.get(key) {
-            by_provider
-                .entry(provider_name.clone())
-                .or_default()
-                .push((key.clone(), provider_value.clone()));
+            // Secrets with filters are resolved individually (not batched)
+            // so the filter can be passed through to the provider
+            if secrets[key].filter.is_some() {
+                level_no_provider.push(key.clone());
+            } else {
+                by_provider
+                    .entry(provider_name.clone())
+                    .or_default()
+                    .push((key.clone(), provider_value.clone()));
+            }
         } else if no_provider.contains(key) {
             level_no_provider.push(key.clone());
         }
