@@ -221,15 +221,28 @@ impl EnpassProvider {
     }
 
     fn query_items(&self, conn: &rusqlite::Connection) -> Result<Vec<EnpassItem>> {
+        // Check if itemfield has a 'type' column (present in newer Enpass vaults).
+        // When label is empty, fall back to type as the field name.
+        let has_type_col: bool = conn.prepare("SELECT type FROM itemfield LIMIT 0").is_ok();
+
+        let label_expr = if has_type_col {
+            "CASE WHEN COALESCE(f.label, '') = '' THEN COALESCE(f.type, '') ELSE f.label END"
+        } else {
+            "COALESCE(f.label, '')"
+        };
+
+        let sql = format!(
+            "SELECT i.uuid, i.title, {label_expr},
+                    f.value, i.key, f.sensitive,
+                    i.trashed, i.deleted, COALESCE(i.category, ''),
+                    COALESCE(i.favorite, 0), COALESCE(i.archived, 0)
+             FROM item i
+             INNER JOIN itemfield f ON i.uuid = f.item_uuid
+             WHERE i.deleted = 0 AND f.deleted = 0"
+        );
+
         let mut stmt = conn
-            .prepare(
-                "SELECT i.uuid, i.title, f.label, f.value, i.key, f.sensitive,
-                        i.trashed, i.deleted, COALESCE(i.category, ''),
-                        COALESCE(i.favorite, 0), COALESCE(i.archived, 0)
-                 FROM item i
-                 INNER JOIN itemfield f ON i.uuid = f.item_uuid
-                 WHERE i.deleted = 0 AND f.deleted = 0",
-            )
+            .prepare(&sql)
             .map_err(|e| FnoxError::ProviderApiError {
                 provider: PROVIDER.to_string(),
                 details: format!("Failed to query vault: {}", e),
