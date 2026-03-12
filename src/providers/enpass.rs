@@ -1,4 +1,4 @@
-use crate::config::{FilterValue, SecretFilter};
+use crate::config::SecretFilter;
 use crate::env;
 use crate::error::{FnoxError, Result};
 use crate::providers::ProviderCapability;
@@ -109,7 +109,11 @@ impl EnpassProvider {
         let db_path = self.vault_path.join("vault.enpassdb");
         let data = std::fs::read(&db_path).map_err(|e| FnoxError::ProviderApiError {
             provider: PROVIDER.to_string(),
-            details: format!("Failed to read vault database '{}': {}", db_path.display(), e),
+            details: format!(
+                "Failed to read vault database '{}': {}",
+                db_path.display(),
+                e
+            ),
             hint: "Check that the vault directory contains vault.enpassdb".to_string(),
             url: URL.to_string(),
         })?;
@@ -128,14 +132,15 @@ impl EnpassProvider {
 
     fn generate_master_password(&self, password: &[u8], vault_info: &VaultInfo) -> Result<Vec<u8>> {
         if vault_info.has_keyfile == 1 {
-            let keyfile_path = self.keyfile_path.as_ref().ok_or_else(|| {
-                FnoxError::ProviderApiError {
-                    provider: PROVIDER.to_string(),
-                    details: "Vault requires a keyfile but none was configured".to_string(),
-                    hint: "Set keyfile in provider config".to_string(),
-                    url: URL.to_string(),
-                }
-            })?;
+            let keyfile_path =
+                self.keyfile_path
+                    .as_ref()
+                    .ok_or_else(|| FnoxError::ProviderApiError {
+                        provider: PROVIDER.to_string(),
+                        details: "Vault requires a keyfile but none was configured".to_string(),
+                        hint: "Set keyfile in provider config".to_string(),
+                        url: URL.to_string(),
+                    })?;
             let keyfile_bytes = load_keyfile(keyfile_path)?;
             let mut combined = password.to_vec();
             combined.extend_from_slice(&keyfile_bytes);
@@ -176,10 +181,7 @@ impl EnpassProvider {
         for cipher_version in [4, 3] {
             match self.try_open_db(&db_path, hex_key, cipher_version) {
                 Ok(conn) => {
-                    tracing::debug!(
-                        cipher_version,
-                        "Successfully opened Enpass database"
-                    );
+                    tracing::debug!(cipher_version, "Successfully opened Enpass database");
                     return Ok(conn);
                 }
                 Err(e) => {
@@ -302,7 +304,10 @@ impl EnpassProvider {
         let ciphertext_and_tag =
             hex::decode(&item.value).map_err(|e| FnoxError::ProviderApiError {
                 provider: PROVIDER.to_string(),
-                details: format!("Failed to decode encrypted value for '{}': {}", item.title, e),
+                details: format!(
+                    "Failed to decode encrypted value for '{}': {}",
+                    item.title, e
+                ),
                 hint: "The encrypted value is corrupted".to_string(),
                 url: URL.to_string(),
             })?;
@@ -331,18 +336,22 @@ impl EnpassProvider {
             aad: &aad,
         };
 
-        let plaintext = cipher.decrypt(nonce, payload).map_err(|e| {
-            FnoxError::ProviderApiError {
-                provider: PROVIDER.to_string(),
-                details: format!("Failed to decrypt field for '{}': {}", item.title, e),
-                hint: "The item data may be corrupted".to_string(),
-                url: URL.to_string(),
-            }
-        })?;
+        let plaintext =
+            cipher
+                .decrypt(nonce, payload)
+                .map_err(|e| FnoxError::ProviderApiError {
+                    provider: PROVIDER.to_string(),
+                    details: format!("Failed to decrypt field for '{}': {}", item.title, e),
+                    hint: "The item data may be corrupted".to_string(),
+                    url: URL.to_string(),
+                })?;
 
         String::from_utf8(plaintext).map_err(|e| FnoxError::ProviderApiError {
             provider: PROVIDER.to_string(),
-            details: format!("Decrypted value is not valid UTF-8 for '{}': {}", item.title, e),
+            details: format!(
+                "Decrypted value is not valid UTF-8 for '{}': {}",
+                item.title, e
+            ),
             hint: "The decrypted value contains non-UTF-8 bytes".to_string(),
             url: URL.to_string(),
         })
@@ -389,18 +398,11 @@ impl EnpassProvider {
                 url: URL.to_string(),
             })?;
 
-        for row in rows {
-            if let Ok((item_uuid, tag_name)) = row {
-                tags.entry(item_uuid).or_default().push(tag_name);
-            }
+        for (item_uuid, tag_name) in rows.flatten() {
+            tags.entry(item_uuid).or_default().push(tag_name);
         }
 
         Ok(tags)
-    }
-
-    #[allow(dead_code)]
-    fn resolve_from_items(items: &[EnpassItem], value: &str) -> Result<String> {
-        Self::resolve_from_items_filtered(items, value, None, &HashMap::new())
     }
 
     fn resolve_from_items_filtered(
@@ -414,9 +416,7 @@ impl EnpassProvider {
         // Find matching items by title (not trashed or deleted)
         let matching: Vec<&EnpassItem> = items
             .iter()
-            .filter(|i| {
-                i.title.eq_ignore_ascii_case(title) && i.trashed == 0 && i.deleted == 0
-            })
+            .filter(|i| i.title.eq_ignore_ascii_case(title) && i.trashed == 0 && i.deleted == 0)
             .collect();
 
         if matching.is_empty() {
@@ -444,16 +444,16 @@ impl EnpassProvider {
             let item_tags: Vec<String> = unique_uuids
                 .iter()
                 .map(|uuid| {
-                    let item_tags = tags
-                        .get(*uuid)
-                        .map(|t| t.join(", "))
-                        .unwrap_or_default();
+                    let item_tags = tags.get(*uuid).map(|t| t.join(", ")).unwrap_or_default();
                     let cat = matching
                         .iter()
                         .find(|i| i.uuid == *uuid)
                         .map(|i| i.category.as_str())
                         .unwrap_or("");
-                    format!("  - uuid={}, category='{}', tags=[{}]", uuid, cat, item_tags)
+                    format!(
+                        "  - uuid={}, category='{}', tags=[{}]",
+                        uuid, cat, item_tags
+                    )
                 })
                 .collect();
             return Err(FnoxError::ProviderSecretNotFound {
@@ -473,16 +473,16 @@ impl EnpassProvider {
             let item_info: Vec<String> = filtered_uuids
                 .iter()
                 .map(|uuid| {
-                    let item_tags = tags
-                        .get(*uuid)
-                        .map(|t| t.join(", "))
-                        .unwrap_or_default();
+                    let item_tags = tags.get(*uuid).map(|t| t.join(", ")).unwrap_or_default();
                     let cat = matching
                         .iter()
                         .find(|i| i.uuid == *uuid)
                         .map(|i| i.category.as_str())
                         .unwrap_or("");
-                    format!("  - uuid={}, category='{}', tags=[{}]", uuid, cat, item_tags)
+                    format!(
+                        "  - uuid={}, category='{}', tags=[{}]",
+                        uuid, cat, item_tags
+                    )
                 })
                 .collect();
             return Err(FnoxError::ProviderApiError {
@@ -493,7 +493,7 @@ impl EnpassProvider {
                     filtered_uuids.len()
                 ),
                 hint: format!(
-                    "Use 'filter' to disambiguate. Matching items:\n{}\nExample: filter = {{ tag = \"my-tag\", category = \"login\" }}",
+                    "Use 'filter' to disambiguate. Matching items:\n{}\nExample: filter = {{ tag = \"my-tag\" }} or filter = {{ Username = \"user@example.com\" }}",
                     item_info.join("\n")
                 ),
                 url: URL.to_string(),
@@ -562,9 +562,11 @@ impl EnpassProvider {
                         let item_tags = tags.get(*uuid).cloned().unwrap_or_default();
                         let item_tags_lower: Vec<String> =
                             item_tags.iter().map(|t| t.to_ascii_lowercase()).collect();
-                        required_values
-                            .iter()
-                            .all(|rv| item_tags_lower.iter().any(|t| t == &rv.to_ascii_lowercase()))
+                        required_values.iter().all(|rv| {
+                            item_tags_lower
+                                .iter()
+                                .any(|t| t == &rv.to_ascii_lowercase())
+                        })
                     }
                     "category" => {
                         // Match against item.category
@@ -579,9 +581,10 @@ impl EnpassProvider {
                     }
                     "favorite" | "fav" => {
                         let is_fav = items.iter().any(|i| i.uuid == *uuid && i.favorite);
-                        required_values
-                            .iter()
-                            .any(|rv| matches!(rv.to_ascii_lowercase().as_str(), "true" | "1" | "yes") == is_fav)
+                        required_values.iter().any(|rv| {
+                            matches!(rv.to_ascii_lowercase().as_str(), "true" | "1" | "yes")
+                                == is_fav
+                        })
                     }
                     "archived" => {
                         let is_archived = items.iter().any(|i| i.uuid == *uuid && i.archived);
@@ -591,15 +594,32 @@ impl EnpassProvider {
                         })
                     }
                     _ => {
-                        // Generic field filter: match against itemfield label/value
-                        let has_field = items.iter().any(|i| {
-                            i.uuid == *uuid
-                                && i.label.eq_ignore_ascii_case(key)
-                                && required_values
-                                    .iter()
-                                    .any(|rv| i.value.eq_ignore_ascii_case(rv))
-                        });
-                        has_field
+                        // Generic field filter: match against itemfield label/value.
+                        // For sensitive (encrypted) fields, decrypt before comparing.
+                        items.iter().any(|i| {
+                            if i.uuid != *uuid || !i.label.eq_ignore_ascii_case(key) {
+                                return false;
+                            }
+                            let field_value = if i.sensitive {
+                                match Self::decrypt_field(i) {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        tracing::trace!(
+                                            label = %i.label,
+                                            uuid = %i.uuid,
+                                            error = %e,
+                                            "Skipping sensitive field in filter (decryption failed)"
+                                        );
+                                        return false;
+                                    }
+                                }
+                            } else {
+                                i.value.clone()
+                            };
+                            required_values
+                                .iter()
+                                .any(|rv| field_value.eq_ignore_ascii_case(rv))
+                        })
                     }
                 }
             });
@@ -624,7 +644,11 @@ impl crate::providers::Provider for EnpassProvider {
         value: &str,
         filter: Option<&SecretFilter>,
     ) -> Result<String> {
-        tracing::debug!("Getting secret '{}' from Enpass vault (filter: {:?})", value, filter.is_some());
+        tracing::debug!(
+            "Getting secret '{}' from Enpass vault (filter: {:?})",
+            value,
+            filter.is_some()
+        );
         let conn = self.open_database()?;
         let items = self.query_items(&conn)?;
         let tags = self.query_tags(&conn)?;
@@ -642,13 +666,11 @@ impl crate::providers::Provider for EnpassProvider {
         tracing::debug!("Batch fetching {} secrets from Enpass vault", secrets.len());
 
         // Open database once for all secrets
-        let (items, tags) = match self
-            .open_database()
-            .and_then(|conn| {
-                let items = self.query_items(&conn)?;
-                let tags = self.query_tags(&conn)?;
-                Ok((items, tags))
-            }) {
+        let (items, tags) = match self.open_database().and_then(|conn| {
+            let items = self.query_items(&conn)?;
+            let tags = self.query_tags(&conn)?;
+            Ok((items, tags))
+        }) {
             Ok(data) => data,
             Err(e) => {
                 return secrets
@@ -728,7 +750,16 @@ mod tests {
     use super::*;
     use crate::config::FilterValue;
 
-    fn make_item(uuid: &str, title: &str, label: &str, value: &str, sensitive: bool, category: &str, favorite: bool, archived: bool) -> EnpassItem {
+    fn make_item(
+        uuid: &str,
+        title: &str,
+        label: &str,
+        value: &str,
+        sensitive: bool,
+        category: &str,
+        favorite: bool,
+        archived: bool,
+    ) -> EnpassItem {
         EnpassItem {
             uuid: uuid.to_string(),
             title: title.to_string(),
@@ -747,16 +778,35 @@ mod tests {
     #[test]
     fn test_resolve_from_items_basic() {
         let items = vec![
-            make_item("uuid1", "My Login", "password", "secret123", false, "login", false, false),
-            make_item("uuid1", "My Login", "username", "admin", false, "login", false, false),
+            make_item(
+                "uuid1",
+                "My Login",
+                "password",
+                "secret123",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid1", "My Login", "username", "admin", false, "login", false, false,
+            ),
         ];
 
-        let result =
-            EnpassProvider::resolve_from_items_filtered(&items, "My Login/password", None, &HashMap::new());
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "My Login/password",
+            None,
+            &HashMap::new(),
+        );
         assert_eq!(result.unwrap(), "secret123");
 
-        let result =
-            EnpassProvider::resolve_from_items_filtered(&items, "My Login/username", None, &HashMap::new());
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "My Login/username",
+            None,
+            &HashMap::new(),
+        );
         assert_eq!(result.unwrap(), "admin");
 
         // Title-only returns first sensitive field
@@ -768,8 +818,19 @@ mod tests {
     #[test]
     fn test_resolve_from_items_filtered_by_tag() {
         let items = vec![
-            make_item("uuid-dev", "Database", "password", "dev-pass", false, "login", false, false),
-            make_item("uuid-prod", "Database", "password", "prod-pass", false, "login", false, false),
+            make_item(
+                "uuid-dev", "Database", "password", "dev-pass", false, "login", false, false,
+            ),
+            make_item(
+                "uuid-prod",
+                "Database",
+                "password",
+                "prod-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
         ];
 
         let mut tags: HashMap<String, Vec<String>> = HashMap::new();
@@ -780,7 +841,10 @@ mod tests {
         let mut filter = SecretFilter::new();
         filter.insert("tag".to_string(), FilterValue::Single("DEV".to_string()));
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "Database/password", Some(&filter), &tags,
+            &items,
+            "Database/password",
+            Some(&filter),
+            &tags,
         );
         assert_eq!(result.unwrap(), "dev-pass");
 
@@ -788,7 +852,10 @@ mod tests {
         let mut filter = SecretFilter::new();
         filter.insert("tag".to_string(), FilterValue::Single("PROD".to_string()));
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "Database/password", Some(&filter), &tags,
+            &items,
+            "Database/password",
+            Some(&filter),
+            &tags,
         );
         assert_eq!(result.unwrap(), "prod-pass");
     }
@@ -796,23 +863,32 @@ mod tests {
     #[test]
     fn test_resolve_from_items_ambiguity_error() {
         let items = vec![
-            make_item("uuid-a", "Database", "password", "pass-a", false, "login", false, false),
-            make_item("uuid-b", "Database", "password", "pass-b", false, "login", false, false),
+            make_item(
+                "uuid-a", "Database", "password", "pass-a", false, "login", false, false,
+            ),
+            make_item(
+                "uuid-b", "Database", "password", "pass-b", false, "login", false, false,
+            ),
         ];
 
         let tags: HashMap<String, Vec<String>> = HashMap::new();
 
         // Without filter, first match wins (backward compat)
-        let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "Database/password", None, &tags,
-        );
+        let result =
+            EnpassProvider::resolve_from_items_filtered(&items, "Database/password", None, &tags);
         assert!(result.is_ok());
 
         // With filter but still ambiguous → error
         let mut filter = SecretFilter::new();
-        filter.insert("category".to_string(), FilterValue::Single("login".to_string()));
+        filter.insert(
+            "category".to_string(),
+            FilterValue::Single("login".to_string()),
+        );
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "Database/password", Some(&filter), &tags,
+            &items,
+            "Database/password",
+            Some(&filter),
+            &tags,
         );
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
@@ -822,15 +898,39 @@ mod tests {
     #[test]
     fn test_resolve_from_items_filter_by_category() {
         let items = vec![
-            make_item("uuid-login", "MyApp", "password", "login-pass", false, "login", false, false),
-            make_item("uuid-note", "MyApp", "password", "note-pass", false, "note", false, false),
+            make_item(
+                "uuid-login",
+                "MyApp",
+                "password",
+                "login-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-note",
+                "MyApp",
+                "password",
+                "note-pass",
+                false,
+                "note",
+                false,
+                false,
+            ),
         ];
 
         let tags: HashMap<String, Vec<String>> = HashMap::new();
         let mut filter = SecretFilter::new();
-        filter.insert("category".to_string(), FilterValue::Single("note".to_string()));
+        filter.insert(
+            "category".to_string(),
+            FilterValue::Single("note".to_string()),
+        );
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "MyApp/password", Some(&filter), &tags,
+            &items,
+            "MyApp/password",
+            Some(&filter),
+            &tags,
         );
         assert_eq!(result.unwrap(), "note-pass");
     }
@@ -838,15 +938,32 @@ mod tests {
     #[test]
     fn test_resolve_from_items_filter_by_favorite() {
         let items = vec![
-            make_item("uuid-fav", "Secret", "password", "fav-pass", false, "login", true, false),
-            make_item("uuid-nofav", "Secret", "password", "nofav-pass", false, "login", false, false),
+            make_item(
+                "uuid-fav", "Secret", "password", "fav-pass", false, "login", true, false,
+            ),
+            make_item(
+                "uuid-nofav",
+                "Secret",
+                "password",
+                "nofav-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
         ];
 
         let tags: HashMap<String, Vec<String>> = HashMap::new();
         let mut filter = SecretFilter::new();
-        filter.insert("favorite".to_string(), FilterValue::Single("true".to_string()));
+        filter.insert(
+            "favorite".to_string(),
+            FilterValue::Single("true".to_string()),
+        );
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "Secret/password", Some(&filter), &tags,
+            &items,
+            "Secret/password",
+            Some(&filter),
+            &tags,
         );
         assert_eq!(result.unwrap(), "fav-pass");
     }
@@ -854,12 +971,26 @@ mod tests {
     #[test]
     fn test_resolve_from_items_multi_tag_filter() {
         let items = vec![
-            make_item("uuid-both", "API", "password", "both-pass", false, "login", false, false),
-            make_item("uuid-one", "API", "password", "one-pass", false, "login", false, false),
+            make_item(
+                "uuid-both",
+                "API",
+                "password",
+                "both-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-one", "API", "password", "one-pass", false, "login", false, false,
+            ),
         ];
 
         let mut tags: HashMap<String, Vec<String>> = HashMap::new();
-        tags.insert("uuid-both".to_string(), vec!["backend".to_string(), "prod".to_string()]);
+        tags.insert(
+            "uuid-both".to_string(),
+            vec!["backend".to_string(), "prod".to_string()],
+        );
         tags.insert("uuid-one".to_string(), vec!["backend".to_string()]);
 
         // Multi-tag filter: must have BOTH tags
@@ -869,8 +1000,255 @@ mod tests {
             FilterValue::Multiple(vec!["backend".to_string(), "prod".to_string()]),
         );
         let result = EnpassProvider::resolve_from_items_filtered(
-            &items, "API/password", Some(&filter), &tags,
+            &items,
+            "API/password",
+            Some(&filter),
+            &tags,
         );
         assert_eq!(result.unwrap(), "both-pass");
+    }
+
+    #[test]
+    fn test_resolve_from_items_filter_by_field() {
+        let items = vec![
+            make_item(
+                "uuid-admin",
+                "Database",
+                "username",
+                "admin",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-admin",
+                "Database",
+                "password",
+                "admin-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-ro", "Database", "username", "readonly", false, "login", false, false,
+            ),
+            make_item(
+                "uuid-ro", "Database", "password", "ro-pass", false, "login", false, false,
+            ),
+        ];
+
+        let tags: HashMap<String, Vec<String>> = HashMap::new();
+
+        // Filter by Username=admin → gets admin-pass
+        let mut filter = SecretFilter::new();
+        filter.insert(
+            "Username".to_string(),
+            FilterValue::Single("admin".to_string()),
+        );
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "Database/password",
+            Some(&filter),
+            &tags,
+        );
+        assert_eq!(result.unwrap(), "admin-pass");
+
+        // Filter by Username=readonly → gets ro-pass
+        let mut filter = SecretFilter::new();
+        filter.insert(
+            "Username".to_string(),
+            FilterValue::Single("readonly".to_string()),
+        );
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "Database/password",
+            Some(&filter),
+            &tags,
+        );
+        assert_eq!(result.unwrap(), "ro-pass");
+    }
+
+    #[test]
+    fn test_resolve_from_items_filter_by_field_case_insensitive() {
+        let items = vec![
+            make_item(
+                "uuid-a",
+                "Server",
+                "URL",
+                "https://prod.example.com",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-a",
+                "Server",
+                "password",
+                "prod-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-b",
+                "Server",
+                "URL",
+                "https://dev.example.com",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-b", "Server", "password", "dev-pass", false, "login", false, false,
+            ),
+        ];
+
+        let tags: HashMap<String, Vec<String>> = HashMap::new();
+
+        // Case-insensitive key match
+        let mut filter = SecretFilter::new();
+        filter.insert(
+            "url".to_string(),
+            FilterValue::Single("https://prod.example.com".to_string()),
+        );
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "Server/password",
+            Some(&filter),
+            &tags,
+        );
+        assert_eq!(result.unwrap(), "prod-pass");
+    }
+
+    #[test]
+    fn test_resolve_from_items_filter_by_field_no_match() {
+        let items = vec![
+            make_item(
+                "uuid-a", "App", "username", "alice", false, "login", false, false,
+            ),
+            make_item(
+                "uuid-a",
+                "App",
+                "password",
+                "alice-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+        ];
+
+        let tags: HashMap<String, Vec<String>> = HashMap::new();
+
+        // Filter by a field value that doesn't exist
+        let mut filter = SecretFilter::new();
+        filter.insert(
+            "username".to_string(),
+            FilterValue::Single("bob".to_string()),
+        );
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "App/password",
+            Some(&filter),
+            &tags,
+        );
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("not found") || err.contains("No items named"),
+            "Error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_resolve_from_items_filter_by_field_combined_with_tag() {
+        let items = vec![
+            make_item(
+                "uuid-dev-admin",
+                "DB",
+                "username",
+                "admin",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-dev-admin",
+                "DB",
+                "password",
+                "dev-admin-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-prod-admin",
+                "DB",
+                "username",
+                "admin",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-prod-admin",
+                "DB",
+                "password",
+                "prod-admin-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-prod-ro",
+                "DB",
+                "username",
+                "readonly",
+                false,
+                "login",
+                false,
+                false,
+            ),
+            make_item(
+                "uuid-prod-ro",
+                "DB",
+                "password",
+                "prod-ro-pass",
+                false,
+                "login",
+                false,
+                false,
+            ),
+        ];
+
+        let mut tags: HashMap<String, Vec<String>> = HashMap::new();
+        tags.insert("uuid-dev-admin".to_string(), vec!["DEV".to_string()]);
+        tags.insert("uuid-prod-admin".to_string(), vec!["PROD".to_string()]);
+        tags.insert("uuid-prod-ro".to_string(), vec!["PROD".to_string()]);
+
+        // Filter by tag=PROD AND username=admin → gets prod-admin-pass
+        let mut filter = SecretFilter::new();
+        filter.insert("tag".to_string(), FilterValue::Single("PROD".to_string()));
+        filter.insert(
+            "username".to_string(),
+            FilterValue::Single("admin".to_string()),
+        );
+        let result = EnpassProvider::resolve_from_items_filtered(
+            &items,
+            "DB/password",
+            Some(&filter),
+            &tags,
+        );
+        assert_eq!(result.unwrap(), "prod-admin-pass");
     }
 }

@@ -78,10 +78,10 @@ Do not store the password directly in config files. Use environment variables fo
 
 Enpass references use the item title and optionally a field label:
 
-| Format            | Example               | Description                                    |
-| ----------------- | --------------------- | ---------------------------------------------- |
-| Item title        | `my-login`            | Returns the password/sensitive field            |
-| Item title/field  | `my-login/username`   | Returns the specific field by label             |
+| Format           | Example             | Description                          |
+| ---------------- | ------------------- | ------------------------------------ |
+| Item title       | `my-login`          | Returns the password/sensitive field |
+| Item title/field | `my-login/username` | Returns the specific field by label  |
 
 ### Simple Item Title
 
@@ -149,6 +149,26 @@ PROD_DB = { provider = "enpass", value = "Database/password", filter = { tag = "
 # Must have both tags AND be a favorite
 SPECIAL = { provider = "enpass", value = "API Key/password", filter = { tag = ["backend", "prod"], favorite = "true" } }
 ```
+
+### Filter by Entry Field
+
+When built-in filters aren't enough, you can match against any field stored in the entry. This is useful when multiple entries share the same title but differ in fields like Username, URL, or Email:
+
+```toml
+[secrets]
+# Filter by Username field
+DB_ADMIN = { provider = "enpass", value = "Database/password", filter = { Username = "admin" } }
+DB_READONLY = { provider = "enpass", value = "Database/password", filter = { Username = "readonly" } }
+
+# Filter by URL field
+PROD_API = { provider = "enpass", value = "API Key/password", filter = { URL = "https://api.prod.example.com" } }
+DEV_API = { provider = "enpass", value = "API Key/password", filter = { URL = "https://api.dev.example.com" } }
+
+# Combine with other filters
+PROD_DB = { provider = "enpass", value = "Database/password", filter = { Username = "deploy", tag = "PROD" } }
+```
+
+Field names are matched case-insensitively against the entry's field labels. Values are also compared case-insensitively. Sensitive (encrypted) fields are decrypted before comparison.
 
 ### Ambiguity Error
 

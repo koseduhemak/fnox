@@ -1,0 +1,9 @@
+{
+  "encryption_algo": "aes-256-cbc",
+  "have_keyfile": 0,
+  "kdf_algo": "pbkdf2",
+  "kdf_iter": 1000,
+  "vault_name": "Test Vault",
+  "vault_uuid": "test-vault",
+  "version": 6
+}

@@ -188,6 +188,7 @@ impl FilterValue {
 /// - `category`: match against item category (e.g., "login")
 /// - `favorite`: match favorite flag ("true"/"false")
 /// - `archived`: match archived flag ("true"/"false")
+/// - Any other key: match against an entry's field label/value (e.g., `Username = "admin"`)
 ///
 /// Multiple keys are combined with AND (all must match).
 pub type SecretFilter = HashMap<String, FilterValue>;
