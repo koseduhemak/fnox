@@ -1,0 +1,19 @@
+{
+  "creating_device": "TESTDEVICE1",
+  "encryption_algo": "aes-256-cbc",
+  "have_keyfile": 0,
+  "kdf_algo": "pbkdf2",
+  "kdf_iter": 320000,
+  "last_modified_by_user": "local",
+  "last_modified_device": "TESTDEVICE1",
+  "last_modified_time": 1773246037,
+  "last_password_changed_by": "local",
+  "last_password_changed_time": 1773245981,
+  "last_password_changing_device": "TESTDEVICE1",
+  "vault_att_count": 0,
+  "vault_icon": "vault/vprivate",
+  "vault_items_count": 1,
+  "vault_name": "Primary",
+  "vault_uuid": "primary",
+  "version": 6
+}

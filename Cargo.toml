@@ -51,6 +51,8 @@ hkdf = "0.12"
 indexmap = { version = "2", features = ["serde"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 keepass = { version = "0.8", features = ["save_kdbx4"] }
+pbkdf2 = { version = "0.12", features = ["hmac"] }
+rusqlite = { version = "0.34", features = ["bundled-sqlcipher-vendored-openssl"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 miette = { version = "7", features = ["fancy"] }
 miniz_oxide = "0.8"

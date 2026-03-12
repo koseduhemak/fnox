@@ -36,6 +36,7 @@ Integrate with password managers and secret services you already use.
 | --------------------------------- | ------------------------- | ------------------------------------- |
 | [1Password](/providers/1password) | 1Password CLI integration | Teams already using 1Password         |
 | [Bitwarden](/providers/bitwarden) | Bitwarden/Vaultwarden     | Open source preference, self-hosting  |
+| [Enpass](/providers/enpass)       | Enpass vault decryption   | Enpass users, local vaults            |
 | [Infisical](/providers/infisical) | Infisical secrets         | Modern secret management, open source |
 
 ### 💻 Local Storage

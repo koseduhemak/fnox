@@ -188,6 +188,11 @@ impl AddCommand {
                 path: OptionStringOrSecretRef::literal("/"),
                 auth_command: None,
             },
+            ProviderType::Enpass => crate::config::ProviderConfig::Enpass {
+                vault_path: StringOrSecretRef::from("~/Documents/Enpass/Vaults/primary"),
+                keyfile: OptionStringOrSecretRef::none(),
+                auth_command: None,
+            },
             ProviderType::KeePass => crate::config::ProviderConfig::KeePass {
                 database: StringOrSecretRef::from("~/secrets.kdbx"),
                 keyfile: OptionStringOrSecretRef::none(),

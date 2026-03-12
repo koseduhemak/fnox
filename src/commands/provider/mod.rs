@@ -61,6 +61,9 @@ pub enum ProviderType {
     #[value(name = "bitwarden-sm")]
     #[strum(serialize = "bitwarden-sm")]
     BitwardenSecretsManager,
+    /// Enpass
+    #[value(name = "enpass")]
+    Enpass,
     /// Infisical
     #[value(name = "infisical")]
     Infisical,

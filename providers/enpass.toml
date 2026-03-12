@@ -1,0 +1,22 @@
+# Enpass provider - read-only Enpass vault decryption
+display_name = "Enpass"
+serde_rename = "enpass"
+rust_variant = "Enpass"
+category = "PasswordManager"
+description = "Decrypt local Enpass vault (.enpassdb)"
+default_name = "enpass"
+setup_instructions = """
+Requires an Enpass vault directory containing vault.enpassdb and vault.json.
+Set password via FNOX_ENPASS_PASSWORD or ENPASS_PASSWORD env var."""
+
+[fields.vault_path]
+type = "required"
+placeholder = "~/Documents/Enpass/Vaults/primary"
+label = "Vault directory path:"
+wizard = true
+
+[fields.keyfile]
+type = "optional"
+placeholder = ""
+label = "Key file (optional):"
+wizard = true
